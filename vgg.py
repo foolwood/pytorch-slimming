@@ -5,17 +5,17 @@ import math  # init
 
 class vgg(nn.Module):
 
-    def __init__(self, dataset='cifar10', init_weights=True):
+    def __init__(self, dataset='cifar10', init_weights=True, cfg=None):
         super(vgg, self).__init__()
-
-        cfg = [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'M', 512, 512, 512, 512]
+        if cfg is None:
+            cfg = [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'M', 512, 512, 512, 512]
         self.feature = self.make_layers(cfg, True)
 
         if dataset == 'cifar100':
             num_classes = 100
         elif dataset == 'cifar10':
             num_classes = 10
-        self.classifier = nn.Linear(512, num_classes)
+        self.classifier = nn.Linear(cfg[-1], num_classes)
         if init_weights:
             self._initialize_weights()
 
