@@ -1,4 +1,5 @@
 from __future__ import print_function
+import os
 import argparse
 import torch
 import torch.nn as nn
@@ -8,6 +9,7 @@ from torchvision import datasets, transforms
 from torch.autograd import Variable
 
 from vgg import vgg
+import shutil
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch Slimming CIFAR training')
@@ -23,12 +25,16 @@ parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
                     help='input batch size for testing (default: 1000)')
 parser.add_argument('--epochs', type=int, default=160, metavar='N',
                     help='number of epochs to train (default: 160)')
+parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
+                    help='manual epoch number (useful on restarts)')
 parser.add_argument('--lr', type=float, default=0.1, metavar='LR',
                     help='learning rate (default: 0.1)')
 parser.add_argument('--momentum', type=float, default=0.9, metavar='M',
                     help='SGD momentum (default: 0.9)')
 parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
                     metavar='W', help='weight decay (default: 1e-4)')
+parser.add_argument('--resume', default='', type=str, metavar='PATH',
+                    help='path to latest checkpoint (default: none)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
 parser.add_argument('--seed', type=int, default=1, metavar='S',
@@ -67,12 +73,25 @@ if args.cuda:
 
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 
+if args.resume:
+    if os.path.isfile(args.resume):
+        print("=> loading checkpoint '{}'".format(args.resume))
+        checkpoint = torch.load(args.resume)
+        args.start_epoch = checkpoint['epoch']
+        best_prec1 = checkpoint['best_prec1']
+        model.load_state_dict(checkpoint['state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        print("=> loaded checkpoint '{}' (epoch {}) Prec1: {:f}"
+              .format(args.resume, checkpoint['epoch'], best_prec1))
+    else:
+        print("=> no checkpoint found at '{}'".format(args.resume))
 
 # additional subgradient descent on the sparsity-induced penalty term
 def updateBN():
     for m in model.modules():
         if isinstance(m, nn.BatchNorm2d):
             m.weight.grad.data.add_(args.s*torch.sign(m.weight.data))  # L1
+
 
 def train(epoch):
     model.train()
@@ -109,11 +128,26 @@ def test():
     print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
         test_loss, correct, len(test_loader.dataset),
         100. * correct / len(test_loader.dataset)))
+    return correct / len(test_loader.dataset)
 
 
-for epoch in range(1, args.epochs + 1):
+def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
+    torch.save(state, filename)
+    if is_best:
+        shutil.copyfile(filename, 'model_best.pth.tar')
+
+best_prec1 = 0
+for epoch in range(args.start_epoch, args.epochs):
     if epoch in [args.epochs*0.5, args.epochs*0.75]:
         for param_group in optimizer.param_groups:
             param_group['lr'] *= 0.1
     train(epoch)
-    test()
+    prec1 = test()
+    is_best = prec1 > best_prec1
+    best_prec1 = max(prec1, best_prec1)
+    save_checkpoint({
+        'epoch': epoch + 1,
+        'state_dict': model.state_dict(),
+        'best_prec1': best_prec1,
+        'optimizer': optimizer.state_dict(),
+    }, is_best)
