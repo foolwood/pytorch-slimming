@@ -23,8 +23,10 @@ parser.add_argument('--epochs', type=int, default=160, metavar='N',
                     help='number of epochs to train (default: 160)')
 parser.add_argument('--lr', type=float, default=0.1, metavar='LR',
                     help='learning rate (default: 0.1)')
-parser.add_argument('--momentum', type=float, default=0.5, metavar='M',
-                    help='SGD momentum (default: 0.5)')
+parser.add_argument('--momentum', type=float, default=0.9, metavar='M',
+                    help='SGD momentum (default: 0.9)')
+parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
+                    metavar='W', help='weight decay (default: 1e-4)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
 parser.add_argument('--seed', type=int, default=1, metavar='S',
@@ -61,7 +63,7 @@ model = vgg()
 if args.cuda:
     model.cuda()
 
-optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
+optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 
 def train(epoch):
     model.train()
@@ -99,7 +101,8 @@ def test():
 
 
 for epoch in range(1, args.epochs + 1):
-    if epoch in [80, 120]:
-        optimizer.param_groups[0]['lr'] *= 0.1
+    if epoch in [args.epochs*0.5, args.epochs*0.75]:
+        for param_group in optimizer.param_groups:
+            param_group['lr'] *= 0.1
     train(epoch)
     test()
