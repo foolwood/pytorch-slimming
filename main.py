@@ -13,6 +13,8 @@ from vgg import vgg
 parser = argparse.ArgumentParser(description='PyTorch Slimming CIFAR training')
 parser.add_argument('--dataset', type=str, default='cifar10',
                     help='training dataset (default: cifar10)')
+parser.add_argument('--sparsity-regularization', '-sr', dest='sr', action='store_true',
+                    help='train with channel sparsity regularization')
 parser.add_argument('--s', type=float, default=0.00001,
                     help='scale sparse rate (default: 0.00001)')
 parser.add_argument('--batch-size', type=int, default=100, metavar='N',
@@ -65,6 +67,13 @@ if args.cuda:
 
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 
+
+# additional subgradient descent on the sparsity-induced penalty term
+def updateBN():
+    for m in model.modules():
+        if isinstance(m, nn.BatchNorm2d):
+            m.weight.grad.data.add_(args.s*torch.sign(m.weight.data))  # L1
+
 def train(epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
@@ -75,6 +84,8 @@ def train(epoch):
         output = model(data)
         loss = F.cross_entropy(output, target)
         loss.backward()
+        if args.sr:
+            updateBN()
         optimizer.step()
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
