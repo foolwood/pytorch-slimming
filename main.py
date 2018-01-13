@@ -19,10 +19,10 @@ parser.add_argument('--batch-size', type=int, default=100, metavar='N',
                     help='input batch size for training (default: 100)')
 parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
                     help='input batch size for testing (default: 1000)')
-parser.add_argument('--epochs', type=int, default=90, metavar='N',
-                    help='number of epochs to train (default: 90)')
-parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
-                    help='learning rate (default: 0.01)')
+parser.add_argument('--epochs', type=int, default=160, metavar='N',
+                    help='number of epochs to train (default: 160)')
+parser.add_argument('--lr', type=float, default=0.1, metavar='LR',
+                    help='learning rate (default: 0.1)')
 parser.add_argument('--momentum', type=float, default=0.5, metavar='M',
                     help='SGD momentum (default: 0.5)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
@@ -99,7 +99,7 @@ def test():
 
 
 for epoch in range(1, args.epochs + 1):
-    if epoch in [30, 60, 90]:
+    if epoch in [80, 120]:
         optimizer.param_groups[0]['lr'] *= 0.1
     train(epoch)
     test()
