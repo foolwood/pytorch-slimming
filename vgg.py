@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 import math  # init
 
+
 class vgg(nn.Module):
 
     def __init__(self, dataset='cifar10', init_weights=True, cfg=None):
@@ -26,7 +27,7 @@ class vgg(nn.Module):
             if v == 'M':
                 layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
             else:
-                conv2d = nn.Conv2d(in_channels, v, kernel_size=3, padding=1)
+                conv2d = nn.Conv2d(in_channels, v, kernel_size=3, padding=1, bias=False)
                 if batch_norm:
                     layers += [conv2d, nn.BatchNorm2d(v), nn.ReLU(inplace=True)]
                 else:

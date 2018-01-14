@@ -16,8 +16,8 @@ parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
                     help='input batch size for testing (default: 1000)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
-parser.add_argument('--percent', type=float, default=0.1,
-                    help='scale sparse rate (default: 0.1)')
+parser.add_argument('--percent', type=float, default=0.2,
+                    help='scale sparse rate (default: 0.2)')
 parser.add_argument('--model', default='', type=str, metavar='PATH',
                     help='path to raw trained model (default: none)')
 parser.add_argument('--save', default='', type=str, metavar='PATH',
@@ -109,8 +109,7 @@ test()
 print(cfg)
 newmodel = vgg(cfg=cfg)
 newmodel.cuda()
-# newmodel.eval()
-#print(newmodel)
+
 layer_id_in_cfg = 0
 start_mask = torch.ones(3)
 end_mask = cfg_mask[layer_id_in_cfg]
@@ -119,8 +118,8 @@ for [m0, m1] in zip(model.modules(), newmodel.modules()):
         idx1 = np.squeeze(np.argwhere(np.asarray(end_mask.cpu().numpy())))
         m1.weight.data = m0.weight.data[idx1].clone()
         m1.bias.data = m0.bias.data[idx1].clone()
-        # m1.running_mean.data = m0.running_mean.data[idx1].clone()
-        # m1.running_var.data = m0.running_var.data[idx1].clone()
+        m1.running_mean = m0.running_mean[idx1].clone()
+        m1.running_var = m0.running_var[idx1].clone()
         layer_id_in_cfg += 1
         start_mask = end_mask.clone()
         if layer_id_in_cfg < len(cfg_mask):  # do not change in Final FC
@@ -132,7 +131,7 @@ for [m0, m1] in zip(model.modules(), newmodel.modules()):
         w = m0.weight.data[:, idx0, :, :].clone()
         w = w[idx1, :, :, :].clone()
         m1.weight.data = w.clone()
-        m1.bias.data = m0.bias.data[idx1].clone()
+        # m1.bias.data = m0.bias.data[idx1].clone()
     elif isinstance(m0, nn.Linear):
         idx0 = np.squeeze(np.argwhere(np.asarray(start_mask.cpu().numpy())))
         m1.weight.data = m0.weight.data[:, idx0].clone()
@@ -140,5 +139,6 @@ for [m0, m1] in zip(model.modules(), newmodel.modules()):
 
 torch.save({'cfg': cfg, 'state_dict': newmodel.state_dict()}, args.save)
 
+print(newmodel)
 model = newmodel
 test()
