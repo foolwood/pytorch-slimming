@@ -19,6 +19,8 @@ parser.add_argument('--sparsity-regularization', '-sr', dest='sr', action='store
                     help='train with channel sparsity regularization')
 parser.add_argument('--s', type=float, default=0.00001,
                     help='scale sparse rate (default: 0.00001)')
+parser.add_argument('--refine', default='', type=str, metavar='PATH',
+                    help='refine from prune model')
 parser.add_argument('--batch-size', type=int, default=100, metavar='N',
                     help='input batch size for training (default: 100)')
 parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
@@ -67,7 +69,13 @@ test_loader = torch.utils.data.DataLoader(
                    ])),
     batch_size=args.test_batch_size, shuffle=True, **kwargs)
 
-model = vgg()
+if args.refine:
+    checkpoint = torch.load(args.refine)
+    model = vgg(cfg=checkpoint['cfg'])
+    model.cuda()
+    model.load_state_dict(checkpoint['state_dict'])
+else:
+    model = vgg()
 if args.cuda:
     model.cuda()
 

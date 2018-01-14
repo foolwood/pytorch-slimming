@@ -6,6 +6,7 @@ from torch.autograd import Variable
 from torchvision import datasets, transforms
 
 from vgg import vgg
+import numpy as np
 
 # Prune settings
 parser = argparse.ArgumentParser(description='PyTorch Slimming CIFAR prune')
@@ -15,8 +16,8 @@ parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
                     help='input batch size for testing (default: 1000)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
-parser.add_argument('--percent', type=float, default=0.5,
-                    help='scale sparse rate (default: 0.5)')
+parser.add_argument('--percent', type=float, default=0.1,
+                    help='scale sparse rate (default: 0.1)')
 parser.add_argument('--model', default='', type=str, metavar='PATH',
                     help='path to raw trained model (default: none)')
 parser.add_argument('--save', default='', type=str, metavar='PATH',
@@ -58,6 +59,8 @@ thre_index = int(total * args.percent)
 thre = y[thre_index]
 
 pruned = 0
+cfg = []
+cfg_mask = []
 for k, m in enumerate(model.modules()):
     if isinstance(m, nn.BatchNorm2d):
         weight_copy = m.weight.data.clone()
@@ -65,26 +68,26 @@ for k, m in enumerate(model.modules()):
         pruned = pruned + mask.shape[0] - torch.sum(mask)
         m.weight.data.mul_(mask)
         m.bias.data.mul_(mask)
+        cfg.append(int(torch.sum(mask)))
+        cfg_mask.append(mask.clone())
         print('layer index: {:d} \t total channel: {:d} \t remaining channel: {:d}'.
             format(k, mask.shape[0], int(torch.sum(mask))))
+    elif isinstance(m, nn.MaxPool2d):
+        cfg.append('M')
 
 pruned_ratio = pruned/total
 
-torch.save(model, args.save)
-
-print('Successful!')
+print('Pre-processing Successful!')
 
 
-# simple test model after prune
-kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
-test_loader = torch.utils.data.DataLoader(
-    datasets.CIFAR10('./data', train=False, transform=transforms.Compose([
-                       transforms.ToTensor(),
-                       transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])),
-    batch_size=args.test_batch_size, shuffle=True, **kwargs)
-
-
+# simple test model after Pre-processing prune (simple set BN scales to zeros)
 def test():
+    kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
+    test_loader = torch.utils.data.DataLoader(
+        datasets.CIFAR10('./data', train=False, transform=transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])),
+        batch_size=args.test_batch_size, shuffle=True, **kwargs)
     model.eval()
     correct = 0
     for data, target in test_loader:
@@ -99,4 +102,43 @@ def test():
         correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset)))
     return correct / float(len(test_loader.dataset))
 
+test()
+
+
+# Make real prune
+print(cfg)
+newmodel = vgg(cfg=cfg)
+newmodel.cuda()
+# newmodel.eval()
+#print(newmodel)
+layer_id_in_cfg = 0
+start_mask = torch.ones(3)
+end_mask = cfg_mask[layer_id_in_cfg]
+for [m0, m1] in zip(model.modules(), newmodel.modules()):
+    if isinstance(m0, nn.BatchNorm2d):
+        idx1 = np.squeeze(np.argwhere(np.asarray(end_mask.cpu().numpy())))
+        m1.weight.data = m0.weight.data[idx1].clone()
+        m1.bias.data = m0.bias.data[idx1].clone()
+        # m1.running_mean.data = m0.running_mean.data[idx1].clone()
+        # m1.running_var.data = m0.running_var.data[idx1].clone()
+        layer_id_in_cfg += 1
+        start_mask = end_mask.clone()
+        if layer_id_in_cfg < len(cfg_mask):  # do not change in Final FC
+            end_mask = cfg_mask[layer_id_in_cfg]
+    elif isinstance(m0, nn.Conv2d):
+        idx0 = np.squeeze(np.argwhere(np.asarray(start_mask.cpu().numpy())))
+        idx1 = np.squeeze(np.argwhere(np.asarray(end_mask.cpu().numpy())))
+        print('In shape: {:d} Out shape:{:d}'.format(idx0.shape[0], idx1.shape[0]))
+        w = m0.weight.data[:, idx0, :, :].clone()
+        w = w[idx1, :, :, :].clone()
+        m1.weight.data = w.clone()
+        m1.bias.data = m0.bias.data[idx1].clone()
+    elif isinstance(m0, nn.Linear):
+        idx0 = np.squeeze(np.argwhere(np.asarray(start_mask.cpu().numpy())))
+        m1.weight.data = m0.weight.data[:, idx0].clone()
+
+
+torch.save({'cfg': cfg, 'state_dict': newmodel.state_dict()}, args.save)
+
+model = newmodel
 test()
