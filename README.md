@@ -1,6 +1,6 @@
 # pytorch-slimming
 
-This is a **[PyTorch](http://pytorch.org/)** reimplementation of algorithm presented in "[Learning Efficient Convolutional Networks Through Network Slimming](http://openaccess.thecvf.com/content_iccv_2017/html/Liu_Learning_Efficient_Convolutional_ICCV_2017_paper.html)(ICCV2017)." . The source code is based on Torch. For more info, visit the author's [webpage](https://github.com/liuzhuang13/slimming)!.
+This is a **[PyTorch](http://pytorch.org/)** _re_-implementation of algorithm presented in "[Learning Efficient Convolutional Networks Through Network Slimming](http://openaccess.thecvf.com/content_iccv_2017/html/Liu_Learning_Efficient_Convolutional_ICCV_2017_paper.html) (ICCV2017)." . The official source code is based on Torch. For more info, visit the author's [webpage](https://github.com/liuzhuang13/slimming)!.
 
 |  CIFAR10-VGG16BN  | Baseline | Trained with Sparsity (1e-4) | Pruned (0.7 Pruned) | Fine-tuned (40epochs) |
 | :---------------: | :------: | :--------------------------: | :-----------------: | :-------------------: |
