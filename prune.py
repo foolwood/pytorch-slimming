@@ -16,8 +16,8 @@ parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
                     help='input batch size for testing (default: 1000)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
-parser.add_argument('--percent', type=float, default=0.2,
-                    help='scale sparse rate (default: 0.2)')
+parser.add_argument('--percent', type=float, default=0.5,
+                    help='scale sparse rate (default: 0.5)')
 parser.add_argument('--model', default='', type=str, metavar='PATH',
                     help='path to raw trained model (default: none)')
 parser.add_argument('--save', default='', type=str, metavar='PATH',
